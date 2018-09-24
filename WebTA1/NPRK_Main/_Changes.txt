@@ -1,0 +1,53 @@
+﻿  Private Sub TBLnprkUserClaims_AddClicked(sender As Object, e As ImageClickEventArgs) Handles TBLnprkUserClaims.AddClicked
+    Dim tmp As New SIS.NPRK.nprkUserClaims
+    tmp = SIS.NPRK.nprkUserClaims.nprkUserClaimsInsert(tmp)
+    Dim RedirectUrl As String = TBLnprkUserClaims.EditUrl & "?ClaimID=" & tmp.ClaimID
+    Response.Redirect(RedirectUrl)
+  End Sub
+================================
+    mStr = "<script type = 'text/javascript' >"
+    mStr &= "setTimeout(function() {"
+    mStr &= "try {"
+    mStr &= "groupClicked($get('nprkUserClaims_0').firstElementChild);"
+    mStr &= "   }catch(e){}"
+    mStr &= "}, 1);"
+    mStr &= "</script>"
+    If Not Page.ClientScript.IsClientScriptBlockRegistered("abcd") Then
+      Page.ClientScript.RegisterClientScriptBlock(GetType(System.String), "abcd", mStr)
+    End If
+=====================================
+    mStr = "<script type = 'text/javascript' >"
+    mStr &= "setTimeout(function() {"
+    mStr &= "try {"
+    mStr &= "groupClicked($get('nprkApplications_0').firstElementChild);"
+    mStr &= "   }catch(e){}"
+    mStr &= "}, 1);"
+    mStr &= "</script>"
+    If Not Page.ClientScript.IsClientScriptBlockRegistered("abcd") Then
+      Page.ClientScript.RegisterClientScriptBlock(GetType(System.String), "abcd", mStr)
+    End If
+=======================================
+    '========Customization==================
+    Dim ClaimID As Integer = CType(Request.QueryString("ClaimID"), Integer)
+    Dim ApplicationID As Integer = CType(Request.QueryString("ApplicationID"), Integer)
+    SIS.NPRK.nprkBillDetails.CustomizeView(FVnprkBillDetails, ClaimID, ApplicationID)
+    '======End Customization================
+  Protected Sub DateChanged(ByVal sender As Object, ByVal e As System.EventArgs)
+    SIS.NPRK.nprkBillDetails.ValidateData(FVnprkBillDetails, sender)
+  End Sub
+  Private Sub ODSnprkBillDetails_Updating(sender As Object, e As ObjectDataSourceMethodEventArgs) Handles ODSnprkBillDetails.Updating
+    SIS.NPRK.nprkBillDetails.ValidateData(FVnprkBillDetails, FVnprkBillDetails.FindControl("F_FromDate"))
+  End Sub
+  ----------------
+      <tr id="rowDeclaration" runat="server" style="height:40px; background-color:antiquewhite">
+        <td class="alignright">
+          <b><asp:Label ID="Label1" runat="server" style="padding:10px"  Text="Declaration :" /></b>
+        </td>
+        <td colspan="3" style="padding:10px">
+          <b><asp:Label ID="lblDeclaration" Font-Size="10pt" runat="server" ForeColor="#CC6633" Text="" /></b>
+        </td>
+      </tr>
+      <tr><td colspan="4" style="border-top: solid 1pt LightGrey" ></td></tr>
+-------------------
+========================================
+        <!--<add tagPrefix="LGM" tagName="LC_PrkBalance" src="~/NPRK_Main/APP_FKControls/SubControls/LC_PrkBalance.ascx"/>-->
