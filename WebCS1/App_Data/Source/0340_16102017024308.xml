@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Companies>
+  <Company name="200">
+		<Lines>
+      <Line PrkLedgerID="2047"  ProcessID="" SerialNo="" BatchNo="" DocumentNo="" LineNo="" GetBatchDocument="200,20,10/10/2017,[ProcessID],[SerialNo]">200,200,20,10/10/2017,[ProcessID],,,JVN,,6515721,,SYS,0340,,UP,INR,1936.00,1,Test Rem-D,0340</Line>
+      <CreditLine>200,200,20,10/10/2017,[ProcessID],,,JVN,,1550263,,SYS,0340,,UP,INR,1936.00,2,Test rem-c,0340</CreditLine>
+    </Lines>
+    <Batch>200,20,10/10/2017,[ProcessID],JVN</Batch>
+    <Errors><Error></Error></Errors>
+  </Company>
+</Companies>

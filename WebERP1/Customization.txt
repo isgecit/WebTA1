@@ -1,0 +1,394 @@
+﻿  Protected Sub ODSvrVehicleRequest_Selected(ByVal sender As Object, ByVal e As System.Web.UI.WebControls.ObjectDataSourceStatusEventArgs) Handles ODSvrVehicleRequest.Selected
+    Dim oVR As SIS.VR.vrVehicleRequest = DirectCast(e.ReturnValue, SIS.VR.vrVehicleRequest)
+    If oVR.RequestStatus >= RequestStates.UnderExecution Then
+      With TBLvrVehicleRequest
+        .EnableSave = False
+        .EnableDelete = False
+      End With
+    End If
+  End Sub
+		Public Function GetColor() As System.Drawing.Color
+      Dim mRet As System.Drawing.Color = Drawing.Color.Blue
+      If RequestStatus = RequestStates.Returned Then
+        mRet = Drawing.Color.Red
+      ElseIf RequestStatus >= RequestStates.UnderExecution And RequestStatus < RequestStates.VehicleArranged Then
+        mRet = Drawing.Color.DarkOrchid
+      ElseIf RequestStatus = RequestStates.VehicleArranged Then
+        mRet = Drawing.Color.Green
+      End If
+			Return mRet
+		End Function
+    Public ReadOnly Property InitiateWFVisible() As Boolean
+      Get
+        Dim mRet As Boolean = False
+        Try
+          If _RequestStatus = RequestStates.Returned Or _RequestStatus = RequestStates.Free Then
+            mRet = True
+          End If
+        Catch ex As Exception
+        End Try
+        Return mRet
+      End Get
+    End Property
+    Public Shared Function InitiateWF(ByVal RequestNo As Int32) As SIS.VR.vrVehicleRequest
+      Dim Results As SIS.VR.vrVehicleRequest = vrVehicleRequestGetByID(RequestNo)
+      With Results
+        .RequestStatus = RequestStates.UnderExecution
+        .RequestedBy = HttpContext.Current.Session("LoginID")
+        .RequestedOn = Now
+        .ReturnRemarks = ""
+        .ReturnedBy = ""
+        .ReturnedOn = ""
+      End With
+      Results = SIS.VR.vrVehicleRequest.UpdateData(Results)
+      Return Results
+    End Function
+=====================
+					  Enabled='<%# Eval("EnableInput") %>'
+    Public Shadows Function GetColor() As System.Drawing.Color
+      Dim mRet As System.Drawing.Color = Drawing.Color.Blue
+      If RequestStatus = RequestStates.VehicleInfoRejected Then
+        mRet = Drawing.Color.Red
+      ElseIf RequestStatus > RequestStates.UnderExecution And RequestStatus < RequestStates.VehicleArranged Then
+        mRet = Drawing.Color.DarkOrchid
+      ElseIf RequestStatus = RequestStates.VehicleArranged Then
+        mRet = Drawing.Color.Green
+      End If
+      Return mRet
+    End Function
+    Public ReadOnly Property EnableInput() As Boolean
+      Get
+        Dim mRet As Boolean = False
+        If RequestStatus = RequestStates.UnderExecution Then
+          mRet = True
+        End If
+        Return mRet
+      End Get
+    End Property
+    Public Shadows ReadOnly Property InitiateWFVisible() As Boolean
+      Get
+        Dim mRet As Boolean = False
+        Try
+          If Me.RequestStatus = RequestStates.RequestLinked Then
+            mRet = True
+          End If
+        Catch ex As Exception
+        End Try
+        Return mRet
+      End Get
+    End Property
+    Public ReadOnly Property ApproveWFVisible() As Boolean
+      Get
+        Dim mRet As Boolean = False
+        Try
+          If Me.RequestStatus = RequestStates.UnderExecution Then
+            mRet = True
+          End If
+        Catch ex As Exception
+        End Try
+        Return mRet
+      End Get
+    End Property
+    Public ReadOnly Property RejectWFVisible() As Boolean
+      Get
+        Dim mRet As Boolean = False
+        Try
+          If Me.RequestStatus = RequestStates.UnderExecution Then
+            mRet = True
+          End If
+        Catch ex As Exception
+        End Try
+        Return mRet
+      End Get
+    End Property
+    Public Shared Shadows Function InitiateWF(ByVal RequestNo As Int32) As SIS.VR.vrPendingVehicleRequest
+      Dim Results As SIS.VR.vrPendingVehicleRequest = vrPendingVehicleRequestGetByID(RequestNo)
+      With Results
+        'Select All the request By SRNNo and Update Status
+        Dim oVRs As List(Of SIS.VR.vrVehicleRequest) = SIS.VR.vrVehicleRequest.GetBySRNNo(Results.SRNNo, "")
+        For Each oVR As SIS.VR.vrVehicleRequest In oVRs
+          oVR.RequestStatus = RequestStates.VehicleInfoUnderApproval
+          SIS.VR.vrPendingVehicleRequest.UpdateData(oVR)
+        Next
+        Results.RequestStatus = RequestStates.VehicleInfoUnderApproval
+        '====
+        Dim oRE As SIS.VR.vrRequestExecution = SIS.VR.vrRequestExecution.UZ_vrRequestExecutionGetByID(.SRNNo)
+        With oRE
+          .RequestStatusID = RequestStates.UnderExecution
+          .ArrangedBy = HttpContext.Current.Session("LoginID")
+          .ArrangedOn = Now
+          .ApprovalRemarks = ""
+          .ApprovedBy = ""
+          .ApprovedOn = ""
+        End With
+        SIS.VR.vrRequestExecution.UpdateData(oRE)
+      End With
+      Return Results
+    End Function
+    Public Shared Function ApproveWF(ByVal RequestNo As Int32, ByVal SRNNo As Int32) As SIS.VR.vrPendingVehicleRequest
+      Dim Results As SIS.VR.vrPendingVehicleRequest = vrPendingVehicleRequestGetByID(RequestNo)
+      'Delink 
+      If Results.SRNNo = SRNNo.ToString Then
+        With Results
+          .RequestStatus = RequestStates.UnderExecution
+          .SRNNo = ""
+          Results = SIS.VR.vrPendingVehicleRequest.UpdateData(Results)
+          'Check if SRNO is not linked with other request
+          Dim RELinkFound As Boolean = False
+          Dim oVRs As List(Of SIS.VR.vrVehicleRequest) = SIS.VR.vrVehicleRequest.GetBySRNNo(SRNNo, "")
+          If oVRs.Count > 0 Then
+            RELinkFound = True
+          End If
+          If Not RELinkFound Then
+            Dim oRE As SIS.VR.vrRequestExecution = SIS.VR.vrRequestExecution.UZ_vrRequestExecutionGetByID(SRNNo)
+            With oRE
+              .RequestStatusID = RequestStates.UnderExecution
+              .ArrangedBy = HttpContext.Current.Session("LoginID")
+              .ArrangedOn = Now
+            End With
+            SIS.VR.vrRequestExecution.UpdateData(oRE)
+          End If
+        End With
+      Else 'Link
+        With Results
+          .RequestStatus = RequestStates.RequestLinked
+          .SRNNo = SRNNo
+          Dim oRE As SIS.VR.vrRequestExecution = SIS.VR.vrRequestExecution.UZ_vrRequestExecutionGetByID(SRNNo)
+          With oRE
+            .RequestStatusID = RequestStates.RequestLinked
+            .ArrangedBy = HttpContext.Current.Session("LoginID")
+            .ArrangedOn = Now
+          End With
+          SIS.VR.vrRequestExecution.UpdateData(oRE)
+        End With
+        Results = SIS.VR.vrPendingVehicleRequest.UpdateData(Results)
+      End If
+      Return Results
+    End Function
+    Public Shared Function RejectWF(ByVal RequestNo As Int32, ByVal ReturnRemarks As String) As SIS.VR.vrPendingVehicleRequest
+      Dim Results As SIS.VR.vrPendingVehicleRequest = vrPendingVehicleRequestGetByID(RequestNo)
+      With Results
+        .RequestStatus = RequestStates.Returned
+        .ReturnRemarks = ReturnRemarks
+        .ReturnedBy = HttpContext.Current.Session("LoginID")
+        .ReturnedOn = Now
+        If .SRNNo <> String.Empty Then
+          Dim oRE As SIS.VR.vrRequestExecution = SIS.VR.vrRequestExecution.UZ_vrRequestExecutionGetByID(.SRNNo)
+          With oRE
+            .RequestStatusID = RequestStates.UnderExecution
+            .ArrangedBy = HttpContext.Current.Session("LoginID")
+            .ArrangedOn = Now
+          End With
+          SIS.VR.vrRequestExecution.UpdateData(oRE)
+          .SRNNo = ""
+        End If
+      End With
+      Results = SIS.VR.vrPendingVehicleRequest.UpdateData(Results)
+      Return Results
+    End Function
+===========================
+'Request Execution
+		Public Function GetColor() As System.Drawing.Color
+			Dim mRet As System.Drawing.Color = Drawing.Color.Blue
+      If RequestStatusID = RequestStates.VehicleInfoRejected Then
+        mRet = Drawing.Color.Red
+      ElseIf RequestStatusID >= RequestStates.UnderExecution And RequestStatusID < RequestStates.VehicleArranged Then
+        mRet = Drawing.Color.DarkOrchid
+      ElseIf RequestStatusID = RequestStates.VehicleArranged Then
+        mRet = Drawing.Color.Green
+      ElseIf RequestStatusID = RequestStates.GRLinked Then
+        mRet = Drawing.Color.DarkGoldenrod
+      End If
+      Return mRet
+		End Function
+    Public ReadOnly Property InitiateWFVisible() As Boolean
+      Get
+        Dim mRet As Boolean = False
+        Try
+          If _RequestStatus = RequestStates.RequestLinked Or _RequestStatus = RequestStates.VehicleInfoRejected Then
+            mRet = True
+          End If
+        Catch ex As Exception
+        End Try
+        Return mRet
+      End Get
+    End Property
+    Public ReadOnly Property ApproveWFVisible() As Boolean
+      Get
+        Dim mRet As Boolean = False
+        Try
+          If _RequestStatusID = RequestStates.VehicleArranged Then
+            mRet = True
+          End If
+        Catch ex As Exception
+        End Try
+        Return mRet
+      End Get
+    End Property
+    Public ReadOnly Property CompleteWFVisible() As Boolean
+      Get
+        Dim mRet As Boolean = False
+        Try
+          If _RequestStatusID = RequestStates.GRLinked Then
+            mRet = True
+          End If
+        Catch ex As Exception
+        End Try
+        Return mRet
+      End Get
+    End Property
+    Public Shared Function InitiateWF(ByVal SRNNo As Int32) As SIS.VR.vrRequestExecution
+      Dim Results As SIS.VR.vrRequestExecution = vrRequestExecutionGetByID(SRNNo)
+      With Results
+        'Select All the request By SRNNo and Update Status
+        Dim oVRs As List(Of SIS.VR.vrVehicleRequest) = SIS.VR.vrVehicleRequest.GetBySRNNo(Results.SRNNo, "")
+        For Each oVR As SIS.VR.vrVehicleRequest In oVRs
+          oVR.RequestStatus = RequestStates.VehicleInfoUnderApproval
+          SIS.VR.vrPendingVehicleRequest.UpdateData(oVR)
+        Next
+        .RequestStatusID = RequestStates.UnderExecution
+        .ArrangedBy = HttpContext.Current.Session("LoginID")
+        .ArrangedOn = Now
+        .ApprovalRemarks = ""
+        .ApprovedBy = ""
+        .ApprovedOn = ""
+      End With
+      Results = SIS.VR.vrRequestExecution.UpdateData(Results)
+      Return Results
+    End Function
+  Protected Sub ODSvrRequestExecution_Selected(ByVal sender As Object, ByVal e As System.Web.UI.WebControls.ObjectDataSourceStatusEventArgs) Handles ODSvrRequestExecution.Selected
+    Dim oVR As SIS.VR.vrRequestExecution = DirectCast(e.ReturnValue, SIS.VR.vrRequestExecution)
+    If oVR.RequestStatusID >= RequestStates.RequestLinked Then
+      With TBLvrRequestExecution
+        .EnableSave = False
+        .EnableDelete = False
+      End With
+      Me.RequestStatusID = oVR.RequestStatusID
+    End If
+  End Sub
+  Protected Sub GVvrLinkedRequest_RowCommand(ByVal sender As Object, ByVal e As System.Web.UI.WebControls.GridViewCommandEventArgs) Handles GVvrLinkedRequest.RowCommand
+		If e.CommandName.ToLower = "lgedit".ToLower Then
+			Try
+				Dim RequestNo As Int32 = GVvrLinkedRequest.DataKeys(e.CommandArgument).Values("RequestNo")  
+				Dim RedirectUrl As String = TBLvrLinkedRequest.EditUrl & "?RequestNo=" & RequestNo
+				Response.Redirect(RedirectUrl)
+			Catch ex As Exception
+			End Try
+		End If
+		If e.CommandName.ToLower = "rejectwf".ToLower Then
+			Try
+				Dim RequestNo As Int32 = GVvrLinkedRequest.DataKeys(e.CommandArgument).Values("RequestNo")  
+				SIS.VR.vrLinkedRequest.RejectWF(RequestNo)
+        GVvrLinkedRequest.DataBind()
+        GVvrUnLinkedRequest.DataBind()
+			Catch ex As Exception
+			End Try
+		End If
+  End Sub
+  Protected Sub GVvrUnLinkedRequest_RowCommand(ByVal sender As Object, ByVal e As System.Web.UI.WebControls.GridViewCommandEventArgs) Handles GVvrUnLinkedRequest.RowCommand
+		If e.CommandName.ToLower = "lgedit".ToLower Then
+			Try
+				Dim RequestNo As Int32 = GVvrUnLinkedRequest.DataKeys(e.CommandArgument).Values("RequestNo")  
+				Dim RedirectUrl As String = TBLvrUnLinkedRequest.EditUrl & "?RequestNo=" & RequestNo
+				Response.Redirect(RedirectUrl)
+			Catch ex As Exception
+			End Try
+		End If
+		If e.CommandName.ToLower = "completewf".ToLower Then
+      Try
+        Dim SRNNo As Int32 = FVvrRequestExecution.DataKey("SRNNo")
+        Dim RequestNo As Int32 = GVvrUnLinkedRequest.DataKeys(e.CommandArgument).Values("RequestNo")
+        SIS.VR.vrUnLinkedRequest.CompleteWF(RequestNo, SRNNo)
+        GVvrUnLinkedRequest.DataBind()
+        GVvrLinkedRequest.DataBind()
+      Catch ex As Exception
+      End Try
+		End If
+  End Sub
+    Public Shared Function CompleteWF(ByVal RequestNo As Int32, ByVal SRNNo As Integer) As SIS.VR.vrUnLinkedRequest
+      Dim Results As SIS.VR.vrUnLinkedRequest = vrUnLinkedRequestGetByID(RequestNo)
+      With Results
+        .RequestStatus = RequestStates.RequestLinked
+        .SRNNo = SRNNo
+        Dim oRE As SIS.VR.vrRequestExecution = SIS.VR.vrRequestExecution.UZ_vrRequestExecutionGetByID(SRNNo)
+        With oRE
+          .RequestStatusID = RequestStates.RequestLinked
+          .ArrangedBy = HttpContext.Current.Session("LoginID")
+          .ArrangedOn = Now
+        End With
+        SIS.VR.vrRequestExecution.UpdateData(oRE)
+      End With
+      Results = SIS.VR.vrUnLinkedRequest.UpdateData(Results)
+      Return Results
+    End Function
+    Public Shared Function RejectWF(ByVal RequestNo As Int32) As SIS.VR.vrLinkedRequest
+      Dim Results As SIS.VR.vrLinkedRequest = vrLinkedRequestGetByID(RequestNo)
+      'Delink 
+      Dim DelinkedSRNNo As Integer = 0
+      With Results
+        DelinkedSRNNo = .SRNNo
+        .RequestStatus = RequestStates.UnderExecution
+        .SRNNo = ""
+        Results = SIS.VR.vrLinkedRequest.UpdateData(Results)
+        'Check if SRNO is not linked with other request
+        Dim RELinkFound As Boolean = False
+        Dim oVRs As List(Of SIS.VR.vrVehicleRequest) = SIS.VR.vrVehicleRequest.GetBySRNNo(DelinkedSRNNo, "")
+        If oVRs.Count > 0 Then
+          RELinkFound = True
+        End If
+        If Not RELinkFound Then
+          Dim oRE As SIS.VR.vrRequestExecution = SIS.VR.vrRequestExecution.UZ_vrRequestExecutionGetByID(Results.SRNNo)
+          With oRE
+            .RequestStatusID = RequestStates.UnderExecution
+            .ArrangedBy = HttpContext.Current.Session("LoginID")
+            .ArrangedOn = Now
+          End With
+          SIS.VR.vrRequestExecution.UpdateData(oRE)
+        End If
+      End With
+      Return Results
+    End Function
+    'Delink Button
+    Public ReadOnly Property RejectWFVisible() As Boolean
+      Get
+        Dim mRet As Boolean = False
+        Try
+          If Me.FK_VR_VehicleRequest_SRNNo.RequestStatusID = RequestStates.UnderExecution _
+          Or Me.FK_VR_VehicleRequest_SRNNo.RequestStatusID = RequestStates.RequestLinked _
+          Or Me.FK_VR_VehicleRequest_SRNNo.RequestStatusID = RequestStates.VehicleInfoRejected Then
+            mRet = True
+          End If
+        Catch ex As Exception
+        End Try
+        Return mRet
+      End Get
+    End Property
+  Protected Sub FVvrRequestExecution_PreRender(ByVal sender As Object, ByVal e As System.EventArgs) Handles FVvrRequestExecution.PreRender
+    TBLvrRequestExecution.PrintUrl &= Request.QueryString("SRNNo") & "|"
+    Dim mStr As String = ""
+    Dim oTR As IO.StreamReader = New IO.StreamReader(HttpContext.Current.Server.MapPath("~/VR_Main/App_Edit") & "/EF_vrRequestExecution.js")
+    mStr = oTR.ReadToEnd
+    oTR.Close()
+    oTR.Dispose()
+    If Not Page.ClientScript.IsClientScriptBlockRegistered("scriptvrRequestExecution") Then
+      Page.ClientScript.RegisterClientScriptBlock(GetType(System.String), "scriptvrRequestExecution", mStr)
+    End If
+    If Me.RequestStatusID = RequestStates.VehicleInfoUnderApproval Or Me.RequestStatusID >= RequestStates.VehicleArranged Then
+      Dim oPnl As UpdatePanel = CType(FVvrRequestExecution.FindControl("UPNLvrUnLinkedRequest"), UpdatePanel)
+      oPnl.Visible = False
+    End If
+  End Sub
+  Public Property RequestStatusID() As Integer
+    Get
+      If ViewState("RequestStatusID") IsNot Nothing Then
+        Return CType(ViewState("RequestStatusID"), Integer)
+      End If
+    End Get
+    Set(ByVal value As Integer)
+      ViewState.Add("RequestStatusID", value)
+    End Set
+  End Property
+
+
+              <td><asp:ImageButton ID="cmdApproveWF" ValidationGroup='<%# "Approve" & Container.DataItemIndex %>' CausesValidation="false" runat="server" Visible='<%# EVal("ApproveWFVisible") %>' Enabled='<%# EVal("ApproveWFEnable") %>' AlternateText='<%# EVal("PrimaryKey") %>' ToolTip="Link GR" SkinID="approve" OnClientClick='<%# "return Page_ClientValidate(""Approve" & Container.DataItemIndex & """) && lc_getGR.getGR(""" & EVal("SRNNo") & """);" %>' CommandName="ApproveWF" CommandArgument='<%# Container.DataItemIndex %>' /></td>
+    <LGM:LC_vrGetGR ID="winGetGR" runat="server" />
